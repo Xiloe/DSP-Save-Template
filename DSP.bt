@@ -1,0 +1,208 @@
+//------------------------------------------------
+//--- 010 Editor v11.0.1 Binary Template
+//
+//      File: DSP.bt
+//   Authors: Xiloe
+//   Version: 1.0
+//   Purpose: Map DSP save data to the hex
+//------------------------------------------------
+
+local int32 i;
+
+typedef struct {
+    int32 id;
+    int32 value;
+} T_KEYPAIR;
+
+typedef struct {
+    int64 filesize;
+    int32 header_version;
+    int32 major;
+    int32 minor;
+    int32 release;
+    
+    int64 game_tick;
+    int64 save_time;
+    
+    int32 png_length;
+    if (png_length !=0)
+        uchar image_data [ png_length ];
+} T_HEADER_DATA;
+
+typedef struct {
+    int32 id;
+	byte unlocked; //bool
+	int32 curLevel;
+	int32 maxLevel;
+	int64 hashUploaded;
+	int64 hashNeeded;
+} T_TECH_PROTO;
+
+typedef struct {
+    double camera_pos_x;
+    double camera_pos_y;
+    double camera_pos_z;
+    float camera_rot_x;
+    float camera_rot_y;
+    float camera_rot_z;
+    float camera_rot_w;
+} T_CAMERA_POS;
+
+typedef struct {
+    byte detail_power; //bool
+	byte detail_vein; //bool
+	byte detail_space_guide; //bool
+	byte detail_sign; //bool
+	byte detail_icon; //bool
+} T_DETAILS;
+
+typedef struct {
+    int32 num;
+    int32 galaxy_algo;
+    int32 galaxy_seed;
+    int32 star_count;
+    int32 player_proto;
+    
+    if (num >= 2)
+        float resources_multiplier;
+    
+    int32 theme_id_length;
+    int32 theme_ids [ theme_id_length ];
+    
+    int64 game_tick;
+    
+    int32 num;
+
+    T_CAMERA_POS camera_position;
+    
+    if (num >= 1)
+    {
+	    int32 reform_cursor_size;
+        int32 replicator_multipliers_count;
+        T_KEYPAIR multipliers [ replicator_multipliers_count ];
+    
+        T_DETAILS details;
+    
+        int32 tutorial_showing_count;
+        int32 tutorial_showing_item_id [ tutorial_showing_count ];
+    }
+} T_PREFERENCES_DATA;
+
+typedef struct {
+    int32 num;
+    int32 unlocked_recipes_count;
+    
+    int32 unlocked_item_recipe_item_id [ unlocked_recipes_count ];
+    
+    if (num >= 2)
+    {
+	    int32 unlocked_tutorial_count;
+	    int32 unlocked_tutorial_item_id [ unlocked_tutorial_count ];
+    }
+    
+    int32 feature_keys_count;
+    int32 feature_keys_item [ feature_keys_count ];
+    
+    int32 tech_proto_count;
+    T_TECH_PROTO tech_protos [ tech_proto_count ];
+    
+    byte auto_manage_lab_items; //bool
+    int32 current_tech_id;
+    int32 tech_queue_size;
+    int32 tech_state [ tech_queue_size ];
+    
+    int32 universe_observe_level;
+    float solar_sail_life;
+    float solar_energy_loss_rate;
+    byte use_ion_layer; // bool
+    int32 inserter_stack_count;
+    float logistic_drone_speed;
+    float logistic_drone_speedScale;
+    int32 logistic_drone_carries;
+    float logistic_ship_sail_speed;
+    float logistic_ship_warp_speed;
+    float logistic_ship_speed_scale;
+    byte logistic_ship_warp_drive;
+    int32 logistic_ship_carries;
+    float mining_cost_rate;
+    float mining_speed_scale;
+    int32 storage_level;
+    int32 lab_level;
+    int32 tech_speed;
+    float dyson_node_latitude;
+    int64 universe_matrix_point_uploaded;
+    byte mission_accomplished; // bool
+} T_HISTORY_DATA;
+
+typedef struct {
+    int32 unknown_data; // TODO
+} T_PRODUCT_POOL;
+
+typedef struct {
+    int32 num;
+	int32 product_capacity;
+	int32 product_cursor;
+
+    // TODO
+	T_PRODUCT_POOL product_pool [ product_cursor ];
+
+    // TODO
+    /*
+    int32 unknown_data = r.ReadInt32();
+	    this.powerPool = new PowerStat[5];
+	    for (i = 0; i < 5; i++)
+	    {
+		    this.powerPool[j] = new PowerStat();
+		    this.powerPool[j].Init(true);
+		    if (i < num3)
+		    {
+			    this.powerPool[j].Import(r);
+		    }
+	    }
+    */
+
+	int32 product_indices_count;
+	int32 product_indices [ product_indices_count ];
+
+	if (num >= 1)
+	    int64 energy_consumption;
+} T_FACTORY_STAT_POOL;
+
+typedef struct {
+    int32 num;
+    int32 factory_stat_pool_count;
+    T_FACTORY_STAT_POOL factory_state_pool [ factory_stat_pool_count ];
+
+    int32 first_create_ids_count;
+    int32 first_create_ids [ first_create_ids_count ];
+
+    int32 favorite_ids_count;
+    int32 favorite_ids [ favorite_ids_count ];
+} T_PRODUCTION_DATA;
+
+typedef struct {
+    int32 num;
+    int32 tech_hashed_history_length;
+    int32 tech_hashed_hihstory [ tech_hashed_history_length ];
+    T_PRODUCTION_DATA production;
+} T_STATISTICS_DATA;
+
+typedef struct {
+    int32 num;
+    string game_name;
+    
+    T_PREFERENCES_DATA preferences;    
+    T_HISTORY_DATA history;
+
+    byte hide_player_model; // bool
+	byte disable_controller; // bool
+
+    T_STATISTICS_DATA statistics;
+} T_GAME_DATA;
+
+
+const int32 MAGIC_SIZE = 6;
+char magic [ MAGIC_SIZE ];
+
+T_HEADER_DATA headers;
+T_GAME_DATA game;
