@@ -2,12 +2,35 @@
 //--- 010 Editor v11.0.1 Binary Template
 //
 //      File: DSP.bt
-//   Authors: Xiloe
-//   Version: 1.0
+//   Authors: Xiloe, Wembly
+//   Version: 1.1
 //   Purpose: Map DSP save data to the hex
 //------------------------------------------------
 
-local int32 i;
+LittleEndian();
+
+void error_message(string msg) {
+    Warning(msg);
+    Printf(msg + "\n");
+}
+
+typedef enum <byte> {
+    False,
+    True
+} bool;
+
+typedef struct
+{
+    // only supports 128 byte length strings,
+    // to add longer strings see:
+    // https://stackoverflow.com/questions/45601311/010-editor-template-parsing-7-bit-encoded-int-for-length-prefixed-string
+    byte len;
+    byte value[len];
+} dnstring <read=netstring_read, optimize=false>;
+
+wstring netstring_read(dnstring &s) {
+    return StringToWString(s.value, CHARSET_UTF8);
+}
 
 typedef struct {
     int32 id;
@@ -15,6 +38,26 @@ typedef struct {
 } T_KEYPAIR;
 
 typedef struct {
+    float x;
+    float y;
+    float z;
+} T_VEC_SINGLE;
+
+typedef struct {
+    double x;
+    double y;
+    double z;
+} T_VEC_DOUBLE;
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+    float w;
+} T_QUATERNION;
+
+typedef struct {
+    byte signature [6];
     int64 filesize;
     int32 header_version;
     int32 major;
@@ -26,16 +69,16 @@ typedef struct {
     
     int32 png_length;
     if (png_length !=0)
-        uchar image_data [ png_length ];
-} T_HEADER_DATA;
+        byte image_data [ png_length ];
+} T_HEADER_DATA <optimize=false>;
 
 typedef struct {
     int32 id;
-	byte unlocked; //bool
-	int32 curLevel;
-	int32 maxLevel;
-	int64 hashUploaded;
-	int64 hashNeeded;
+    bool unlocked;
+    int32 cur_level;
+    int32 max_level;
+    int64 hash_uploaded;
+    int64 hash_needed;
 } T_TECH_PROTO;
 
 typedef struct {
@@ -49,11 +92,11 @@ typedef struct {
 } T_CAMERA_POS;
 
 typedef struct {
-    byte detail_power; //bool
-	byte detail_vein; //bool
-	byte detail_space_guide; //bool
-	byte detail_sign; //bool
-	byte detail_icon; //bool
+    bool detail_power;
+    bool detail_vein;
+    bool detail_space_guide;
+    bool detail_sign;
+    bool detail_icon;
 } T_DETAILS;
 
 typedef struct {
@@ -77,16 +120,18 @@ typedef struct {
     
     if (num >= 1)
     {
-	    int32 reform_cursor_size;
+        int32 reform_cursor_size;
         int32 replicator_multipliers_count;
         T_KEYPAIR multipliers [ replicator_multipliers_count ];
     
         T_DETAILS details;
     
         int32 tutorial_showing_count;
-        int32 tutorial_showing_item_id [ tutorial_showing_count ];
+        if (tutorial_showing_count > 0) {
+            int32 tutorial_showing_item_id [ tutorial_showing_count ];
+        }
     }
-} T_PREFERENCES_DATA;
+} T_PREFERENCES_DATA <optimize=false>;
 
 typedef struct {
     int32 num;
@@ -96,8 +141,8 @@ typedef struct {
     
     if (num >= 2)
     {
-	    int32 unlocked_tutorial_count;
-	    int32 unlocked_tutorial_item_id [ unlocked_tutorial_count ];
+        int32 unlocked_tutorial_count;
+        int32 unlocked_tutorial_item_id [ unlocked_tutorial_count ];
     }
     
     int32 feature_keys_count;
@@ -106,7 +151,7 @@ typedef struct {
     int32 tech_proto_count;
     T_TECH_PROTO tech_protos [ tech_proto_count ];
     
-    byte auto_manage_lab_items; //bool
+    bool auto_manage_lab_items;
     int32 current_tech_id;
     int32 tech_queue_size;
     int32 tech_state [ tech_queue_size ];
@@ -114,7 +159,7 @@ typedef struct {
     int32 universe_observe_level;
     float solar_sail_life;
     float solar_energy_loss_rate;
-    byte use_ion_layer; // bool
+    bool use_ion_layer;
     int32 inserter_stack_count;
     float logistic_drone_speed;
     float logistic_drone_speedScale;
@@ -131,78 +176,1344 @@ typedef struct {
     int32 tech_speed;
     float dyson_node_latitude;
     int64 universe_matrix_point_uploaded;
-    byte mission_accomplished; // bool
-} T_HISTORY_DATA;
+    bool mission_accomplished;
+} T_HISTORY_DATA <optimize=false>;
 
 typedef struct {
-    int32 unknown_data; // TODO
-} T_PRODUCT_POOL;
+    int32 version;
+    int32 count_len;
+    int32 count[count_len];
+    int32 cursor_len;
+    int32 cursur[cursor_len];
+    int32 total_len;
+    int32 total[total_len];
+    int32 item_id;
+} T_PRODUCT_STAT <optimize=false>;
 
 typedef struct {
-    int32 num;
-	int32 product_capacity;
-	int32 product_cursor;
+    int32 version;
+    int32 energy_len;
+    int64 energy[energy_len];
+    int32 cursor_len;
+    int32 cursor[cursor_len];
+    int32 total_len;
+    int64 total[total_len];
+} T_POWER_STAT <optimize=false>;
 
-    // TODO
-	T_PRODUCT_POOL product_pool [ product_cursor ];
+typedef struct {
+    int32 version;
+    int32 product_capacity;
+    int32 product_cursor;
 
-    // TODO
-    /*
-    int32 unknown_data = r.ReadInt32();
-	    this.powerPool = new PowerStat[5];
-	    for (i = 0; i < 5; i++)
-	    {
-		    this.powerPool[j] = new PowerStat();
-		    this.powerPool[j].Init(true);
-		    if (i < num3)
-		    {
-			    this.powerPool[j].Import(r);
-		    }
-	    }
-    */
+    T_PRODUCT_STAT product_pool [ product_cursor - 1 ];
 
-	int32 product_indices_count;
-	int32 product_indices [ product_indices_count ];
+    int32 power_pools_total;
+    T_POWER_STAT power_stats[Min(5, power_pools_total)];
 
-	if (num >= 1)
-	    int64 energy_consumption;
-} T_FACTORY_STAT_POOL;
+    int32 product_indices_count;
+    int32 product_indices [ product_indices_count ];
+
+    if (version >= 1) {
+        int64 energy_consumption;
+    }
+} T_FACTORY_PRODUCTION_STAT <optimize=false>;
 
 typedef struct {
     int32 num;
     int32 factory_stat_pool_count;
-    T_FACTORY_STAT_POOL factory_state_pool [ factory_stat_pool_count ];
+    T_FACTORY_PRODUCTION_STAT factory_state_pool [ factory_stat_pool_count ];
 
     int32 first_create_ids_count;
     int32 first_create_ids [ first_create_ids_count ];
 
     int32 favorite_ids_count;
     int32 favorite_ids [ favorite_ids_count ];
-} T_PRODUCTION_DATA;
+} T_PRODUCTION_STATISTICS <optimize=false>;
 
 typedef struct {
     int32 num;
     int32 tech_hashed_history_length;
-    int32 tech_hashed_hihstory [ tech_hashed_history_length ];
-    T_PRODUCTION_DATA production;
-} T_STATISTICS_DATA;
+    int32 tech_hashed_history [ tech_hashed_history_length ];
+    T_PRODUCTION_STATISTICS production;
+} T_GAME_STAT_DATA <optimize=false>;
+
+typedef enum <int32> {
+    Default,
+    Fuel,
+    Filtered = 9
+} T_E_STORAGE_TYPE;
 
 typedef struct {
-    int32 num;
-    string game_name;
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    if (version >= 1) {
+        int32 previous;
+        int32 next;
+        int32 bottom;
+        int32 top;
+    }
+    T_E_STORAGE_TYPE type;
+
+    int32 size;
+
+    if (version >= 1) {
+        int32 bans;
+    }
+
+    struct {
+        int32 item_id;
+        int32 filter;
+        int32 count;
+        int32 stack_size;
+    } grids[size];
+} T_STORAGE_COMPONENT <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 recipe_id;
+    int32 count;
+    int32 tick;
+    int32 tick_spend;
     
-    T_PREFERENCES_DATA preferences;    
+    int32 item_ids_len;
+    int32 product_len;
+
+    struct {
+        int32 item_id;
+        int32 counts;
+        int32 served;
+    } items[item_ids_len];
+
+    struct {
+        int32 id;
+        int32 count;
+        int32 produced;
+    } product[product_len];
+
+    int32 parent_task_index;
+} T_FORGE_TASK <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 len;
+    T_FORGE_TASK tasks[len];
+} T_MECHA_FORGE <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 items_len;
+    T_KEYPAIR items[items_len];
+} T_MECHA_LAB <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 stage;
+    T_VEC_SINGLE position;
+    T_VEC_SINGLE target;
+    T_VEC_SINGLE forward;
+    float speed;
+    int32 movement;
+    int32 target_object;
+    float progress;
+    T_VEC_SINGLE initial_vector;
+} T_MECHA_DRONE;
+
+typedef struct {
+    int32 version;
+    double core_energy_cap;
+    double core_energy;
+    double core_power_gen;
+    double reactor_power_gen;
+    double reactor_energy;
+    int32 reactor_item_id;
+    T_STORAGE_COMPONENT reactor_storage;
+    T_STORAGE_COMPONENT warp_storage;
+    double walk_power;
+    double jump_energy;
+    double thrust_power_per_acc;
+    double warp_keeping_ower_per_speed;
+    double warp_start_power_per_speed;
+    double mining_power;
+    double replicate_power;
+    double research_power;
+    double drone_eject_energy;
+    double drone_energy_per_meter;
+    int32 core_level;
+    int32 thruster_level;
+    float mining_speed;
+    float replicate_speed;
+    float walk_speed;
+    float jump_speed;
+    float max_sail_speed;
+    float max_Warp_speed;
+    float build_area;
+    T_MECHA_FORGE forge;
+    T_MECHA_LAB lab;
+    int32 drone_count;
+    float drone_speed;
+    int32 drone_movement;
+    T_MECHA_DRONE drones[drone_count];
+} T_MECHA <optimize=false>;
+
+typedef enum <int32> {
+    None,
+    Departure,
+    OriginOrbit,
+    AccOrbit,
+    Space,
+    DestOrbit,
+    Approaching
+} T_E_NAVI_STAGE;
+
+typedef struct {
+    int32 version;
+    bool navigating;
+    int32 navi_astro_id;
+    T_VEC_DOUBLE navi_target;
+    bool use_fly;
+    bool use_sail;
+    bool use_warp;
+    T_E_NAVI_STAGE stage;
+    double fly_threshold;
+    double sail_threshold;
+    double warp_threshold;
+    double max_sail_speed;
+} T_PLAYER_NAVIGATION;
+
+typedef enum <int32> {
+    Walk,
+    Drift,
+    Fly,
+    Sail
+} T_E_MOVEMENT_STATE;
+
+typedef struct {
+    int32 version;
+    int32 planet_id;
+    T_VEC_SINGLE position;
+    T_VEC_DOUBLE u_position;
+    T_QUATERNION u_rotation;
+    T_E_MOVEMENT_STATE movement_state;
+    float warp_state;
+    bool warp_command;
+    T_VEC_DOUBLE u_velocity;
+    int32 in_hand_item_id;
+    int32 in_hand_item_count;
+    T_MECHA mecha;
+    T_STORAGE_COMPONENT package;
+
+    if (version >= 1) {
+        T_PLAYER_NAVIGATION navigation;
+    }
+
+    int32 sand_count;
+} T_PLAYER;
+
+typedef struct {
+    int32 version;
+} T_GALACTIC_TRANSPORT;
+
+typedef struct {
+        float time;
+        float prepare_length;
+        float working_length;
+        uint32 state;
+        float power;
+} T_ANIM_DATA;
+
+typedef struct {
+        uint32 sign_type;
+        uint32 icon_type;
+        uint32 icon_id_0;
+        uint32 icon_id_1;
+        uint32 icon_id_2;
+        uint32 icon_id_3;
+        float count_0;
+        float count_1;
+        float count_2;
+        float count_3;
+        T_QUATERNION r;
+} T_SIGN_DATA;
+
+// original size is byte, using int16 here to allow for the casting that occurs
+typedef enum <int16> {
+    T_E_VEIN_TYPE16_None,
+    T_E_VEIN_TYPE16_Iron,
+    T_E_VEIN_TYPE16_Copper,
+    T_E_VEIN_TYPE16_Silicium,
+    T_E_VEIN_TYPE16_Titanium,
+    T_E_VEIN_TYPE16_Stone,
+    T_E_VEIN_TYPE16_Coal,
+    T_E_VEIN_TYPE16_Oil,
+    T_E_VEIN_TYPE16_Fireice,
+    T_E_VEIN_TYPE16_Diamond,
+    T_E_VEIN_TYPE16_Fractal,
+    T_E_VEIN_TYPE16_Crysrub,
+    T_E_VEIN_TYPE16_Grat,
+    T_E_VEIN_TYPE16_Bamboo,
+    T_E_VEIN_TYPE16_Mag,
+    T_E_VEIN_TYPE16_Max
+} T_E_VEIN_TYPE16;
+
+// duplicated since this enum is read as two different sizes
+typedef enum <int32> {
+    T_E_VEIN_TYPE32_None,
+    T_E_VEIN_TYPE32_Iron,
+    T_E_VEIN_TYPE32_Copper,
+    T_E_VEIN_TYPE32_Silicium,
+    T_E_VEIN_TYPE32_Titanium,
+    T_E_VEIN_TYPE32_Stone,
+    T_E_VEIN_TYPE32_Coal,
+    T_E_VEIN_TYPE32_Oil,
+    T_E_VEIN_TYPE32_Fireice,
+    T_E_VEIN_TYPE32_Diamond,
+    T_E_VEIN_TYPE32_Fractal,
+    T_E_VEIN_TYPE32_Crysrub,
+    T_E_VEIN_TYPE32_Grat,
+    T_E_VEIN_TYPE32_Bamboo,
+    T_E_VEIN_TYPE32_Mag,
+    T_E_VEIN_TYPE32_Max
+} T_E_VEIN_TYPE32;
+
+typedef struct {
+    int32 count;
+    byte mod_data[count];
+    int32 vein_amounts_len;
+    int64 vein_amounts[vein_amounts_len];
+
+    int32 vein_groups_len;
+    struct {
+        T_E_VEIN_TYPE32 type;
+        T_VEC_SINGLE pos;
+        int32 count;
+        int64 amount;
+    } vein_groups[vein_groups_len];
+} T_PLANET_DATA <optimize=false>;
+
+typedef struct {
+    byte version;
+    int32 id;
+    int16 proto_id;
+    int16 model_index;
+    T_VEC_SINGLE pos;
+    T_QUATERNION rot;
+    int32 belt_id;
+    int32 splitter_id;
+    int32 storage_id;
+    int32 tank_id;
+    int32 miner_id;
+    int32 inserter_id;
+    int32 assembler_id;
+    int32 fractionate_id;
+    int32 ejector_id;
+    int32 silo_id;
+    int32 lab_id;
+    int32 station_id;
+    int32 power_node_id;
+    int32 power_gen_id;
+    int32 power_con_id;
+    int32 power_acc_id;
+    int32 power_exc_id;
+    int32 monster_id;
+} T_ENTITY_DATA;
+
+typedef struct {
+    byte version;
+    int16 id;
+    int16 model_index;
+    T_VEC_SINGLE pos;
+    T_QUATERNION rot;
+    T_VEC_SINGLE pos2;
+    T_QUATERNION rot2;
+    int32 up_entity;
+    int16 pick_offset;
+    int16 insert_offset;
+    int32 recipe_id;
+    int32 filter_id;
+    int32 ref_count;
+
+    if (ref_count > 0) {
+        int32 ref_arr[ref_count];
+    }
+} T_PREBUILD_DATA <optimize=false>;
+
+typedef struct {
+    byte version;
+    int32 id;
+    int16 proto_id;
+    int16 model_index;
+    int16 hp;
+    T_VEC_SINGLE pos;
+    T_QUATERNION rot;
+    T_VEC_SINGLE scl;
+} T_VEGE;
+
+typedef struct {
+    byte version;
+    int32 id;
+    T_E_VEIN_TYPE16 type;
+    int16 model_index;
+    int16 group_index;
+    int32 amount;
+    int32 product_id;
+    T_VEC_SINGLE pos;
+    int32 miner_count;
+    int32 miner_id_0;
+    int32 miner_id_1;
+    int32 miner_id_2;
+    int32 miner_id_3;
+} T_VEIN_DATA;
+
+typedef struct {
+    int32 item;
+    T_VEC_SINGLE position;
+    T_QUATERNION rotation;
+} T_CARGO;
+
+typedef struct {
+    int32 version;
+    int32 pool_capacity;
+    int32 cursor;
+    int32 recycle_begin;
+    int32 recycle_end;
+    T_CARGO cargo_pool[cursor];
+    int32 recycle_ids[pool_capacity];
+} T_CARGO_CONTAINER <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 speed;
+    int32 seg_path_id;
+    int32 seg_index;
+    int32 seg_pivot_offset;
+    int32 seg_length;
+    int32 output_id;
+    int32 back_input_id;
+    int32 left_input_id;
+    int32 right_input_id;
+} T_BELT_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 belt_a;
+    int32 belt_b;
+    int32 belt_c;
+    int32 belt_d;
+    int32 input_0;
+    int32 input_1;
+    int32 input_2;
+    int32 input_3;
+    int32 output_1;
+    int32 output_2;
+    int32 output_3;
+    bool in_priority;
+    bool out_priority;
+    int32 out_filter;
+} T_SPLITTER_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 capacity;
+    int32 buffer_length;
+    int32 chunk_capacity;
+    int32 chunk_count;
+    int32 update_len;
+    bool closed;
+    int32 output_path_id_for_import;
+    int32 output_index;
+    int32 belts_len;
+    int32 input_paths_len;
+
+    byte buffer[buffer_length];
+
+    struct {
+        int32 row[3];
+    } chunks[chunk_count];
+
+    local int i = 0;
+    for (i = 0; i < buffer_length; i++) {
+        T_VEC_SINGLE point_pos;
+        T_QUATERNION point_rot;
+    }
+
+    int32 belts[belts_len];
+
+    int32 input_paths[input_paths_len];
+} T_CARGO_PATH <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 belt_cursor;
+    int32 belt_capacity;
+    int32 belt_recycle_cursor;
+    int32 splitter_cursor;
+    int32 splitter_capacity;
+    int32 splitter_recycle_cursor;
+    int32 path_cursor;
+    int32 path_capacity;
+    int32 path_recycle_cursor;
+    if (belt_cursor > 1) {
+        T_BELT_COMPONENT belt_pool[belt_cursor-1];
+    }
+    int32 belt_recycle[belt_recycle_cursor];
+    if (splitter_cursor > 1) {
+        T_SPLITTER_COMPONENT splitter_pool[splitter_cursor-1];
+    }
+    int32 splitter_recycle[splitter_recycle_cursor];
+    struct {
+        int32 idx;
+        if (idx != 0) {
+            T_CARGO_PATH data;
+        }
+    } path_pool[path_cursor-1];
+
+    int32 path_recycle[path_recycle_cursor];
+} T_CARGO_TRAFFIC <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 last_tank_id;
+    int32 next_tank_id;
+    int32 belt_0;
+    int32 belt_1;
+    int32 belt_2;
+    int32 belt_3;
+    bool is_output_0;
+    bool is_output_1;
+    bool is_output_2;
+    bool is_output_3;
+    int32 fluid_storage_count;
+    int32 current_count;
+    int32 fluid_id;
+    bool output_switch;
+    bool input_switch;
+    bool is_bottom;
+} T_TANK_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 storage_cursor;
+    int32 storage_capacity;
+    int32 storage_recycle_cursor;
+
+    local int i;
+    for (i = 0; i < storage_cursor-1; i++) {
+        int32 storage_recycle_idx;
+        if (idx != 0) {
+            int32 size;
+            T_STORAGE_COMPONENT storage_recycle;
+        }
+    }
+
+    int32 storage_recycle[storage_recycle_cursor];
+
+    int32 tank_capacity;
+    int32 tank_cursor;
+    int32 recycle_cursor;
+    T_TANK_COMPONENT tank_pool[tank_cursor-1];
+    int32 tank_recycle[tank_recycle_cursor];
+} T_FACTORY_STORAGE <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 network_id;
+    bool photovoltaic;
+    bool wind;
+    bool gamma;
+    int64 gen_energy_per_tick;
+    int64 use_fuel_per_tick;
+    int16 fuel_mask;
+    int64 fuel_energy;
+    int16 cur_fuel_id;
+    int16 fuel_id;
+    int16 fuel_count;
+    int64 fuel_heat;
+    int32 catalyst_id;
+    int32 catalyst_point;
+    float product_count;
+    int64 product_heat;
+    float warmup;
+    float ion_enhance;
+    T_VEC_SINGLE p;
+} T_GENERATOR_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 network_id;
+    bool is_charger;
+    int32 work_energy_per_tick;
+    int32 idle_energy_per_tick;
+    int32 required_energy;
+    T_VEC_SINGLE power_point;
+    float connect_distance;
+    float cover_radius;
+} T_POWER_NODE_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 network_id;
+    T_VEC_SINGLE plug_pos;
+    int64 required_energy;
+    int64 served_energy;
+    int64 work_energy_per_tick;
+    int64 idle_energy_per_tick;
+} T_POWER_CONSUMER_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 network_id;
+    int64 input_energy_per_tick;
+    int64 output_energy_per_tick;
+    int64 cur_energy;
+    int64 max_energy;
+} T_POWER_ACCUMULATOR_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 network_id;
+    int16 empty_count;
+    int16 full_count;
+    float target_state;
+    float state;
+    int64 energy_per_tick;
+    int64 cur_pool_energy;
+    int64 pool_max_energy;
+    int32 empty_id;
+    int32 full_id;
+    if (version >= 1) {
+        int32 belt_0;
+        int32 belt_1;
+        int32 belt_2;
+        int32 belt_3;
+        bool is_output_0;
+        bool is_output_1;
+        bool is_output_2;
+        bool is_output_3;
+        int32 output_slot;
+        int32 input_slot;
+        int32 output_rectify;
+        int32 input_rectify;
+    }
+} T_POWER_EXCHANGER_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    T_VEC_SINGLE p;
+    float conn_distance_2;
+    float cover_radius_2;
+    int32 gen_id;
+    int32 acc_id;
+    int32 exc_id;
+
+    int32 conn_ids_for_load_len;
+    int32 line_ids_for_load_len;
+    int32 consumers_len;
+    int32 conn_ids_for_load[conn_ids_for_load_len];
+    int32 line_ids_for_load[line_ids_for_load_len];
+    int32 consumers[consumers_len];
+} T_NODE <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 nodes_len;
+    int32 consumers_len;
+    int32 generators_len;
+    int32 accumulators_len;
+    int32 exchangers_len;
+
+    T_NODE nodes[nodes_len];
+    int32 consumers[consumers_len];
+    int32 generators[generators_len];
+    int32 accumulators[accumulators_len];
+    int32 exchangers[exchangers_len];
+} T_POWER_NETWORK <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 generator_capacity;
+    int32 gen_cursor;
+    int32 gen_recycle_cursor;
+    T_GENERATOR_COMPONENT gen_pool[gen_cursor-1];
+    int32 gen_recycle[gen_recycle_cursor];
+
+    int32 node_capacity;
+    int32 node_cursor;
+    int32 node_recycle_cursor;
+    T_POWER_NODE_COMPONENT node_pool[node_cursor-1];
+    int32 node_recycle[node_recycle_cursor];
+
+    int32 consumer_capacity;
+    int32 consumer_cursor;
+    int32 consumer_recycle_cursor;
+    T_POWER_CONSUMER_COMPONENT consumer_pool[consumer_cursor-1];
+    int32 consumer_recycle[consumer_recycle_cursor];
+
+    int32 accumulator_capacity;
+    int32 acc_cursor;
+    int32 acc_recycle_cursor;
+    T_POWER_ACCUMULATOR_COMPONENT acc_pool[acc_cursor-1];
+    int32 acc_recycle[acc_recycle_cursor];
+
+    int32 exchanger_capacity;
+    int32 exc_cursor;
+    int32 exc_recycle_cursor;
+    T_POWER_EXCHANGER_COMPONENT exc_pool[exc_cursor-1];
+    int32 exc_recycle[exc_recycle_cursor];
+
+    int32 network_capacity;
+    int32 net_cursor;
+    int32 net_recycle_cursor;
+    local int32 i;
+    for (i = 0; i < net_cursor; i++) {
+        int32 net_pool_is_present;
+        if (is_present == 1) {
+            T_POWER_NETWORK net_pool;
+        }
+    }
+
+    int32 net_recycle[net_recycle_cursor];
+} T_POWER_SYSTEM <optimize=false>;
+
+typedef enum <int32> {
+    T_E_MINER_TYPE_None,
+    T_E_MINER_TYPE_Water,
+    T_E_MINER_TYPE_Vein,
+    T_E_MINER_TYPE_Oil
+} T_E_MINER_TYPE;
+
+typedef enum <int32> {
+    T_E_WORK_STATE_Idle,
+    T_E_WORK_STATE_Running,
+    T_E_WORK_STATE_Outputing,
+    T_E_WORK_STATE_Lack = -1,
+    T_E_WORK_STATE_Full = -2
+} T_E_WORK_STATE;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 pc_id;
+    T_E_MINER_TYPE type;
+    int32 speed;
+    int32 time;
+    int32 period;
+    int32 insert_target;
+    T_E_WORK_STATE work_state;
+    int32 vein_count;
+    if (vein_count > 0)
+    {
+        int32 veins[vein_count];
+    }
+    int32 currentVeinIndex;
+    int32 minimumVeinAmount;
+    int32 product_id;
+    int32 product_count;
+    uint32 seed;
+} T_MINER_COMPONENT <optimize=false>;
+
+typedef enum <int32> {
+    T_E_INSERTER_STAGE_Picking,
+    T_E_INSERTER_STAGE_Sending,
+    T_E_INSERTER_STAGE_Inserting,
+    T_E_INSERTER_STAGE_Returning
+} T_E_INSERTER_STAGE;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 pc_id;
+    T_E_INSERTER_STAGE stage;
+    int32 speed;
+    int32 time;
+    int32 stt;
+    int32 delay;
+    int32 pick_target;
+    int32 insert_target;
+    bool care_needs;
+    bool can_stack;
+    int16 pick_offset;
+    int16 insert_offset;
+    int32 filter;
+    int32 item_id;
+    int32 stack_count;
+    int32 stack_size;
+    T_VEC_SINGLE pos2;
+    T_QUATERNION rot2;
+    int16 t1;
+    int16 t2;
+} T_INSERTER_COMPONENT;
+
+typedef enum <int32> {
+    T_E_RECIPE_TYPE_None,
+    T_E_RECIPE_TYPE_Smelt,
+    T_E_RECIPE_TYPE_Chemical,
+    T_E_RECIPE_TYPE_Refine,
+    T_E_RECIPE_TYPE_Assemble,
+    T_E_RECIPE_TYPE_Particle,
+    T_E_RECIPE_TYPE_Exchange,
+    T_E_RECIPE_TYPE_PhotonStore,
+    T_E_RECIPE_TYPE_Fractionate,
+    T_E_RECIPE_TYPE_Research = 15
+} T_E_RECIPE_TYPE;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 pc_id;
+    bool replicating;
+    bool outputing;
+    int32 speed;
+    int32 time;
+    int32 recipe_id;
+
+    if (recipe_id > 0) {
+        T_E_RECIPE_TYPE recipe_type;
+        int32 time_spend;
+        
+        int32 requires_len;
+        int32 requires[requires_len];
+
+        int32 requires_counts_len;
+        int32 requires_counts[requires_counts_len];
+
+        int32 served_len;
+        int32 served[served_len];
+
+        int32 needs_len;
+        int32 needs[needs_len];
+
+        int32 products_len;
+        int32 products[products_len];
+
+        int32 product_counts_len;
+        int32 product_counts[product_counts_len];
+
+        int32 produced_len;
+        int32 produced[produced_len];
+    }
+} T_ASSEMBLER_COMPONENT <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 pc_id;
+    int32 belt_0;
+    int32 belt_1;
+    int32 belt_2;
+    bool is_output_0;
+    bool is_output_1;
+    bool is_output_2;
+    bool is_working;
+    float produce_prob;
+    int32 need;
+    int32 product;
+    int32 need_curr_count;
+    int32 product_curr_count;
+    int32 oriProduct_curr_count;
+    int32 progress;
+    bool is_rand;
+    bool fractionate_success;
+    int32 need_max_count;
+    int32 product_max_count;
+    int32 oriProduct_max_count;
+    uint32 seed;
+} T_FRACTIONATE_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 planet_id;
+    int32 pc_id;
+    int32 direction;
+    int32 time;
+    bool fired;
+    int32 charge_spend;
+    int32 cold_spend;
+    int32 bullet_id;
+    int32 bullet_count;
+    int32 orbit_id;
+    float pivotY;
+    float muzzleY;
+    T_VEC_SINGLE local_pos_n;
+    float local_alt;
+    T_QUATERNION local_rot;
+    T_VEC_SINGLE local_dir;
+} T_EJECTOR_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 planet_id;
+    int32 pc_id;
+    int32 direction;
+    int32 time;
+    bool fired;
+    int32 charge_spend;
+    int32 cold_spend;
+    int32 bullet_id;
+    int32 bullet_count;
+    int32 auto_index;
+    bool has_node;
+    T_VEC_SINGLE local_pos;
+    T_QUATERNION local_rot;
+} T_SILO_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    int32 pc_id;
+    int32 next_lab_id;
+    bool replicating;
+    bool outputing;
+    int32 time;
+    int32 hash_bytes;
+    bool research_mode;
+    int32 recipe_id;
+    int32 tech_id;
+    if (!research_mode && recipe_id > 0) {
+        int32 time_spend;
+        
+        int32 requires_len;
+        int32 requires[requires_len];
+
+        int32 require_counts_len;
+        int32 requireCounts[require_counts_len];
+
+
+        int32 served_len;
+        int32 served[served_len];
+
+        int32 needs_len;
+        int32 needs[needs_len];
+
+        int32 products_len;
+        int32 products[products_len];
+
+        int32 product_counts_len;
+        int32 product_counts[product_counts_len];
+
+        int32 produced_len;
+        int32 produced[produced_len];
+    }
+
+    if (research_mode) {
+        int32 matrix_points_len;
+        int32 matrix_points[matrix_points_len];
+
+        int32 matrix_served_len;
+        int32 matrix_served[matrix_served_len];
+
+        int32 needs_len;
+        int32 needs[needs_len];
+    }
+} T_LAB_COMPONENT <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 miner_capacity;
+    int32 miner_cursor;
+    int32 miner_recycle_cursor;
+    T_MINER_COMPONENT miner_pool[miner_cursor-1];
+    int32 miner_recycle[miner_recycle_cursor];
+
+    int32 inserter_capacity;
+    int32 inserter_cursor;
+    int32 inserter_recycle_cursor;
+    T_INSERTER_COMPONENT inserter_pool[inserter_cursor-1];
+    int32 inserter_recycle[inserter_recycle_cursor];
+
+    int32 assembler_capacity;
+    int32 assembler_cursor;
+    int32 assembler_recycle_cursor;
+    T_ASSEMBLER_COMPONENT assembler_pool[assembler_cursor-1];
+    int32 assembler_recycle[assembler_recycle_cursor];
+
+    int32 fractionate_capacity;
+    int32 fractionate_cursor;
+    int32 fractionate_recycle_cursor;
+    T_FRACTIONATE_COMPONENT fractionate_pool[fractionate_cursor-1];
+    int32 fractionate_recycle[fractionate_recycle_cursor];
+
+    int32 ejector_capacity;
+    int32 ejector_cursor;
+    int32 ejector_recycle_cursor;
+    T_EJECTOR_COMPONENT ejector_pool[ejector_cursor-1];
+    int32 ejector_recycle[ejector_recycle_cursor];
+
+    int32 silo_capacity;
+    int32 silo_cursor;
+    int32 silo_recycle_cursor;
+    T_SILO_COMPONENT silo_pool[silo_cursor-1];
+    int32 silo_recycle[silo_recycle_cursor];
+
+    int32 lab_capacity;
+    int32 lab_cursor;
+    int32 lab_recycle_cursor;
+    T_LAB_COMPONENT lab_pool [ lab_cursor-1 ];
+    int32 lab_recycle[lab_recycle_cursor];
+} T_FACTORY_SYSTEM <optimize=false>;
+
+typedef struct {
+    int32 version;
+    T_VEC_SINGLE begin;
+    T_VEC_SINGLE end;
+    int32 end_id;
+    float direction;
+    float max_t;
+    float t;
+    int32 item_id;
+    int32 item_count;
+    int32 gene;
+} T_DRONE_DATA;
+
+typedef struct {
+    int32 version;
+    int32 other_station_id;
+    int32 this_index;
+    int32 other_index;
+    int32 item_id;
+    int32 this_ordered;
+    int32 this_other_ordered;
+} T_LOCAL_LOGISTIC_ORDER;
+
+typedef struct {
+    int32 version;
+    int32 planet_a;
+    int32 planet_b;
+    T_VEC_DOUBLE u_pos;
+    T_VEC_SINGLE u_vel;
+    float u_speed;
+    float warp_state;
+    T_QUATERNION u_rot;
+    T_VEC_SINGLE u_angular_vel;
+    float u_angular_speed;
+    T_VEC_DOUBLE p_pos_temp;
+    T_QUATERNION p_rot_temp;
+    int32 other_gid;
+    int32 direction;
+    float t;
+    int32 item_id;
+    int32 item_count;
+    int32 gene;
+    int32 ship_index;
+    int32 warper_cnt;
+} T_SHIP_DATA;
+
+typedef struct {
+    int32 version;
+    int32 other_station_gid;
+    int32 this_index;
+    int32 other_index;
+    int32 item_id;
+    int32 this_ordered;
+    int32 other_ordered;
+} T_REMOTE_LOGISTIC_ORDER;
+
+typedef enum <int32> {
+    T_E_LOGISTIC_STORAGE_None,
+    T_E_LOGISTIC_STORAGE_Supply,
+    T_E_LOGISTIC_STORAGE_Demand
+} T_E_LOGISTIC_STORAGE;
+
+typedef struct {
+    int32 version;
+    int32 item_id;
+    int32 count;
+    int32 local_order;
+    int32 remote_order;
+    int32 max;
+    T_E_LOGISTIC_STORAGE local_logic;
+    T_E_LOGISTIC_STORAGE remote_logic;
+} T_STATION_STORE;
+
+typedef enum <int32> {
+    T_IO_DIR_None,
+    T_IO_DIR_Output,
+    T_IO_DIR_Input
+} T_IO_DIR;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 gid;
+    int32 entity_id;
+    int32 planet_id;
+    int32 pc_id;
+    int32 gene;
+    T_VEC_SINGLE drone_dock;
+    T_VEC_SINGLE ship_dock_pos;
+    T_QUATERNION ship_dock_rot;
+    bool is_stellar;
+    
+    int32 is_default_name;
+    if (is_default_name > 0) {
+        dnstring name;
+    }
+    int64 energy;
+    int64 energy_per_tick;
+    int32 warper_count;
+    int32 warper_max_count;
+    int32 idle_drone_count;
+    int32 work_drone_count;
+    int32 drone_data_capacity;
+    T_DRONE_DATA work_drone_datas[work_drone_count];
+    T_LOCAL_LOGISTIC_ORDER work_drone_orders[work_drone_count];
+
+    int32 idle_ship_count;
+    int32 work_ship_count;
+    uint64 idle_ship_indices;
+    uint64 work_ship_indices;
+    int32 work_ship_datas_capacity;
+    T_SHIP_DATA work_ship_datas[work_ship_count];
+    T_REMOTE_LOGISTIC_ORDER work_ship_orders[work_ship_count];
+
+    int32 storage_len;
+    T_STATION_STORE storage[storage_len];
+
+    if (version >= 1) {
+        int32 slots_len;
+        struct {
+            T_IO_DIR dir;
+            int32 belt_id;
+            int32 storage_idx;
+            int32 counter;
+        } slots[slots_len];
+    }
+
+    int32 local_pair_process;
+    int32 remote_pair_process;
+    int32 next_ship_index;
+    bool is_collector;
+    int32 collection_ids_len;
+    if (collection_ids_len != 0) {
+        int32 collection_ids[collection_ids_len];
+    }
+
+    int32 collection_per_tick_len;
+    if (collection_per_tick_len != 0) {
+        float collection_per_tick[collection_per_tick_len];
+    }
+
+    int32 current_collections_len;
+    float current_collections[current_collections_len];
+
+    int32 collect_speed;
+} T_STATION_COMPONENT <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 station_cursor;
+    int32 station_capacity;
+    int32 station_recycle_cursor;
+    struct {
+        int32 idx;
+        if (idx != 0) {
+            T_STATION_COMPONENT data;
+        }
+    } station_pool[station_cursor-1];
+
+    int32 station_recycle[station_recycle_cursor];
+} T_PLANET_TRANSPORT <optimize=false>;
+
+typedef enum <int32> {
+    Null,
+    Stopped,
+    Wandering
+} T_E_MONSTER_STATE;
+
+typedef struct {
+    int32 version;
+    int32 id;
+    int32 entity_id;
+    float walk_speed;
+    T_VEC_SINGLE point0;
+    T_VEC_SINGLE point1;
+    T_VEC_SINGLE point2;
+    int32 direction;
+    float stop_time;
+    float t;
+    float stop_current_time;
+    T_E_MONSTER_STATE monster_state;
+    float step_distance;
+} T_MONSTER_COMPONENT;
+
+typedef struct {
+    int32 version;
+    int32 monster_capacity;
+    int32 monster_cursor;
+    int32 monster_recycle_cursor;
+    T_MONSTER_COMPONENT monster_pool[monster_cursor-1];
+    int32 monster_recycle[recycle_cursor];
+} T_MONSTER_SYSTEM <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 reform_data_capacity;
+    if (reform_data_capacity > 0) {
+        byte reform_data[reform_data_capacity];
+    }
+
+    int32 reform_offsets_capacity;
+    int32 reform_offsets[num2];
+} T_PLATFORM_SYSTEM <optimize=false>;
+
+typedef struct {
+    int32 version;
+    int32 planet_id;
+
+    T_PLANET_DATA planet;
+
+    int32 entity_capacity;
+    int32 entity_cursor;
+    int32 entity_recycle_cursor;
+    if (entity_cursor > 0) {
+        T_ENTITY_DATA entity_pool[entity_cursor-1];
+        T_ANIM_DATA entity_anim_pool[entity_cursor-1];
+        T_SIGN_DATA entity_sign_pool[entity_cursor-1];
+        int32 entity_conn_pool[(entity_cursor-1) * 16];
+    }
+    int32 entity_recycle[entity_recycle_cursor];
+
+    int32 prebuild_capacity;
+    int32 prebuild_cursor;
+    int32 prebuild_recycle_cursor;
+    if (prebuild_cursor > 0) {
+        T_PREBUILD_DATA prebuild_pool[prebuild_cursor-1];
+        int32 prebuild_conn_pool[(prebuild_cursor - 1) * 16];
+    }
+    int32 prebuild_recycle[prebuild_recycle_cursor];
+
+    // int32 vege_capacity;
+    // int32 vege_cursor;
+    // int32 vege_recycle_cursor;
+    // if (vege_cursor > 0) {
+    //     T_VEGE vege_pool[vege_cursor-1];
+    // }
+    // int32 vege_recycle[vege_recycle_cursor];
+
+    // int32 vein_capacity;
+    // int32 vein_cursor;
+    // int32 vein_recycle_cursor;
+
+    // if (vein_cursor > 0) {
+    //     T_VEIN_DATA vein_pool[vein_cursor-1];
+    // }
+    // int32 vein_recycle[vein_recycle_cursor];
+    // if (vein_cursor > 0) {
+    //     T_ANIM_DATA vein_anim_pool[vein_cursor-1];
+    // }
+
+    // T_CARGO_CONTAINER cargo_container;
+    // T_CARGO_TRAFFIC cargo_traffic;
+
+    // T_FACTORY_STORAGE factory_storage;
+    // T_POWER_SYSTEM power_system;
+    // T_FACTORY_SYSTEM factory_system;
+    // T_PLANET_TRANSPORT transport;
+    // T_MONSTER_SYSTEM monster_system;
+
+    // if (version >= 1) {
+    //     T_PLATFORM_SYSTEM platform_system;
+    // }
+} T_PLANET_FACTORY <optimize=false>;
+
+typedef struct {
+} T_SAIL_ORBIT;
+
+typedef struct {
+} T_SAIL_BULLET;
+
+typedef struct {
+} T_DYSON_SWARM <optimize=false>;
+
+typedef struct {
+} T_DYSON_NODE;
+
+typedef struct {
+} T_DYSON_FRAME;
+
+typedef struct {
+} T_DYSON_SHELL <optimize=false>;
+
+typedef struct {
+} T_DYSON_SPHERE_LAYER;
+
+typedef struct {
+} T_DYSON_ROCKET;
+
+typedef struct {
+} T_DYSON_NODE_RDATA;
+
+typedef struct {
+} T_DYSON_SPHERE <optimize=false>;
+
+typedef struct {
+    int32 version;
+    dnstring game_name;
+    
+    if (version >= 1) {
+        T_PREFERENCES_DATA preferences;
+    }
+    
     T_HISTORY_DATA history;
 
-    byte hide_player_model; // bool
-	byte disable_controller; // bool
+    if (version >= 2) {
+        bool hide_player_model;
+        bool disable_controller;
+    }
 
-    T_STATISTICS_DATA statistics;
-} T_GAME_DATA;
+    T_GAME_STAT_DATA statistics;
 
+    int32 planet_id;
+    T_PLAYER main_player;
 
-const int32 MAGIC_SIZE = 6;
-char magic [ MAGIC_SIZE ];
+    int32 factory_count;
 
-T_HEADER_DATA headers;
+    T_GALACTIC_TRANSPORT galactic_transport;
+    // T_PLANET_FACTORY planet_factory[factory_count];
+
+    // int32 dyson_shere_count; // must equal to galaxy star count
+    // local int32 i;
+    // for (i = 0; i < dyson_shere_count; i++) {
+    //     bool dyson_sphere_exists <size=4>;
+    //     if (dyson_sphere_exists == 1) {
+    //         T_DYSON_SPHERE dyson_spheres;
+    //     }
+    // }
+
+} T_GAME_DATA <optimize=false>;
+
+T_HEADER_DATA header;
 T_GAME_DATA game;
+
+if (header.signature != "VFSAVE" && header.filesize == FileSize()) {
+    error_message( "*ERROR: File is not a DSP Save File or corrupt. Template stopped." );
+    return -1;
+}
